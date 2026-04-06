@@ -1,15 +1,12 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import type { ReactNode } from 'react'
-
-interface User {
-  id: string
-  username: string
-  email: string
-}
+import { apiClient } from '../api'
+import type { User } from '../api'
 
 interface AuthContextType {
   user: User | null
   login: (username: string, password: string) => Promise<boolean>
+  register: (username: string, email: string, password: string) => Promise<boolean>
   logout: () => void
   isLoading: boolean
 }
@@ -33,43 +30,53 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    const savedUser = localStorage.getItem('user')
-    if (savedUser) {
-      setUser(JSON.parse(savedUser))
+    const token = apiClient.getToken()
+    if (token) {
+      // Token exists, but we need to validate it by fetching user data
+      // For now, we'll assume the token is valid (in a real app, you'd validate it)
+      setIsLoading(false)
+    } else {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }, [])
 
   const login = async (username: string, password: string): Promise<boolean> => {
     setIsLoading(true)
-
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    if (username && password.length >= 4) {
-      const userData: User = {
-        id: Date.now().toString(),
-        username,
-        email: `${username}@example.com`
-      }
-
-      setUser(userData)
-      localStorage.setItem('user', JSON.stringify(userData))
+    try {
+      const response = await apiClient.login({ username, password })
+      setUser(response.user)
       setIsLoading(false)
       return true
+    } catch (error) {
+      console.error('Login error:', error)
+      setIsLoading(false)
+      return false
     }
+  }
 
-    setIsLoading(false)
-    return false
+  const register = async (username: string, email: string, password: string): Promise<boolean> => {
+    setIsLoading(true)
+    try {
+      const response = await apiClient.register({ username, email, password })
+      setUser(response.user)
+      setIsLoading(false)
+      return true
+    } catch (error) {
+      console.error('Registration error:', error)
+      setIsLoading(false)
+      return false
+    }
   }
 
   const logout = () => {
     setUser(null)
-    localStorage.removeItem('user')
+    apiClient.clearToken()
   }
 
   const value: AuthContextType = {
     user,
     login,
+    register,
     logout,
     isLoading
   }

@@ -1,55 +1,35 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import { AuthProvider, useAuth } from './contexts/AuthContext'
 import Login from './components/Login'
+import { useTodos } from './hooks/useTodos'
 import './App.css'
-
-interface Todo {
-  id: number
-  text: string
-  completed: boolean
-  userId: string
-}
 
 function TodoApp() {
   const { user, logout } = useAuth()
-  const [todos, setTodos] = useState<Todo[]>([])
   const [inputValue, setInputValue] = useState('')
+  const { todos, isLoading, error, addTodo, toggleTodo, deleteTodo, clearError } = useTodos()
 
-  useEffect(() => {
-    const savedTodos = localStorage.getItem(`todos_${user?.id}`)
-    if (savedTodos) {
-      setTodos(JSON.parse(savedTodos))
-    }
-  }, [user?.id])
-
-  const saveTodos = (newTodos: Todo[]) => {
-    setTodos(newTodos)
-    if (user) {
-      localStorage.setItem(`todos_${user.id}`, JSON.stringify(newTodos))
-    }
-  }
-
-  const addTodo = () => {
-    if (inputValue.trim() && user) {
-      const newTodo: Todo = {
-        id: Date.now(),
-        text: inputValue,
-        completed: false,
-        userId: user.id
+  const handleAddTodo = async () => {
+    if (inputValue.trim()) {
+      const success = await addTodo(inputValue.trim())
+      if (success) {
+        setInputValue('')
       }
-      saveTodos([...todos, newTodo])
-      setInputValue('')
     }
   }
 
-  const toggleTodo = (id: number) => {
-    saveTodos(todos.map(todo =>
-      todo.id === id ? { ...todo, completed: !todo.completed } : todo
-    ))
+  const handleToggleTodo = async (id: number) => {
+    await toggleTodo(id)
   }
 
-  const deleteTodo = (id: number) => {
-    saveTodos(todos.filter(todo => todo.id !== id))
+  const handleDeleteTodo = async (id: number) => {
+    await deleteTodo(id)
+  }
+
+  const handleKeyPress = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleAddTodo()
+    }
   }
 
   if (!user) {
@@ -65,30 +45,56 @@ function TodoApp() {
           <button onClick={logout} className="logout-button">Logout</button>
         </div>
       </div>
+
+      {error && (
+        <div className="error-banner">
+          <span>{error}</span>
+          <button onClick={clearError} className="close-error">×</button>
+        </div>
+      )}
+
       <div className="todo-input">
         <input
           type="text"
           value={inputValue}
           onChange={(e) => setInputValue(e.target.value)}
-          onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+          onKeyPress={handleKeyPress}
           placeholder="Add a new todo..."
+          disabled={isLoading}
         />
-        <button onClick={addTodo}>Add</button>
+        <button onClick={handleAddTodo} disabled={isLoading || !inputValue.trim()}>
+          {isLoading ? 'Adding...' : 'Add'}
+        </button>
       </div>
-      <ul className="todo-list">
-        {todos.map(todo => (
-          <li key={todo.id} className={todo.completed ? 'completed' : ''}>
-            <input
-              type="checkbox"
-              checked={todo.completed}
-              onChange={() => toggleTodo(todo.id)}
-            />
-            <span>{todo.text}</span>
-            <button onClick={() => deleteTodo(todo.id)}>Delete</button>
-          </li>
-        ))}
-      </ul>
-      {todos.length === 0 && <p className="empty-state">No todos yet. Add one above!</p>}
+
+      {isLoading ? (
+        <div className="loading">Loading todos...</div>
+      ) : (
+        <ul className="todo-list">
+          {todos.map(todo => (
+            <li key={todo.id} className={todo.completed ? 'completed' : ''}>
+              <input
+                type="checkbox"
+                checked={todo.completed}
+                onChange={() => handleToggleTodo(todo.id)}
+                disabled={isLoading}
+              />
+              <span>{todo.text}</span>
+              <button
+                onClick={() => handleDeleteTodo(todo.id)}
+                className="delete-button"
+                disabled={isLoading}
+              >
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {!isLoading && todos.length === 0 && (
+        <p className="empty-state">No todos yet. Add one above!</p>
+      )}
     </div>
   )
 }
