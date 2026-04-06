@@ -1,120 +1,103 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useState, useEffect } from 'react'
+import { AuthProvider, useAuth } from './contexts/AuthContext'
+import Login from './components/Login'
 import './App.css'
 
-function App() {
-  const [count, setCount] = useState(0)
+interface Todo {
+  id: number
+  text: string
+  completed: boolean
+  userId: string
+}
+
+function TodoApp() {
+  const { user, logout } = useAuth()
+  const [todos, setTodos] = useState<Todo[]>([])
+  const [inputValue, setInputValue] = useState('')
+
+  useEffect(() => {
+    const savedTodos = localStorage.getItem(`todos_${user?.id}`)
+    if (savedTodos) {
+      setTodos(JSON.parse(savedTodos))
+    }
+  }, [user?.id])
+
+  const saveTodos = (newTodos: Todo[]) => {
+    setTodos(newTodos)
+    if (user) {
+      localStorage.setItem(`todos_${user.id}`, JSON.stringify(newTodos))
+    }
+  }
+
+  const addTodo = () => {
+    if (inputValue.trim() && user) {
+      const newTodo: Todo = {
+        id: Date.now(),
+        text: inputValue,
+        completed: false,
+        userId: user.id
+      }
+      saveTodos([...todos, newTodo])
+      setInputValue('')
+    }
+  }
+
+  const toggleTodo = (id: number) => {
+    saveTodos(todos.map(todo =>
+      todo.id === id ? { ...todo, completed: !todo.completed } : todo
+    ))
+  }
+
+  const deleteTodo = (id: number) => {
+    saveTodos(todos.filter(todo => todo.id !== id))
+  }
+
+  if (!user) {
+    return <Login onLoginSuccess={() => { }} />
+  }
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
+    <div className="todo-app">
+      <div className="app-header">
+        <h1>Todo App</h1>
+        <div className="user-info">
+          <span>Welcome, {user.username}!</span>
+          <button onClick={logout} className="logout-button">Logout</button>
         </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.tsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+      </div>
+      <div className="todo-input">
+        <input
+          type="text"
+          value={inputValue}
+          onChange={(e) => setInputValue(e.target.value)}
+          onKeyPress={(e) => e.key === 'Enter' && addTodo()}
+          placeholder="Add a new todo..."
+        />
+        <button onClick={addTodo}>Add</button>
+      </div>
+      <ul className="todo-list">
+        {todos.map(todo => (
+          <li key={todo.id} className={todo.completed ? 'completed' : ''}>
+            <input
+              type="checkbox"
+              checked={todo.completed}
+              onChange={() => toggleTodo(todo.id)}
+            />
+            <span>{todo.text}</span>
+            <button onClick={() => deleteTodo(todo.id)}>Delete</button>
+          </li>
+        ))}
+      </ul>
+      {todos.length === 0 && <p className="empty-state">No todos yet. Add one above!</p>}
+    </div>
+  )
+}
 
-      <div className="ticks"></div>
-
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+function App() {
+  return (
+    <AuthProvider>
+      <TodoApp />
+    </AuthProvider>
   )
 }
 
