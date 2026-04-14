@@ -8,15 +8,16 @@ RUN npm run build
 # Production stage
 FROM nginx:alpine
 
-# Copy build files
 COPY --from=build /app/dist /usr/share/nginx/html
 
-# Fix permissions for OpenShift
+# Fix permissions
 RUN mkdir -p /var/cache/nginx /var/run /var/log/nginx && \
     chgrp -R 0 /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx/html && \
     chmod -R g+rwX /var/cache/nginx /var/run /var/log/nginx /usr/share/nginx/html
 
-# Use non-root user
+# 🔥 Change nginx to run on 8080
+RUN sed -i 's/listen       80;/listen       8080;/' /etc/nginx/conf.d/default.conf
+
 USER 1001
 
-EXPOSE 80
+EXPOSE 8080
